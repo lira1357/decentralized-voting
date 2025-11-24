@@ -1,80 +1,90 @@
 "use client";
 
-import Link from "next/link";
-import { Address } from "@scaffold-ui/components";
-import type { NextPage } from "next";
-import { hardhat } from "viem/chains";
-import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { useTargetNetwork } from "~~/hooks/scaffold-eth";
+import { useEffect, useState } from "react";
+import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
-const Home: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
-  const { targetNetwork } = useTargetNetwork();
+export default function Home() {
+  const [winnerName, setWinnerName] = useState<string>("");
+  const [winnerVotes, setWinnerVotes] = useState<number>(0);
+
+  // Чтение кандидатов (индекс → структура)
+  const candidate0 = useScaffoldReadContract({
+    contractName: "Voting",
+    functionName: "candidates",
+    args: [0n],
+  });
+
+  const candidate1 = useScaffoldReadContract({
+    contractName: "Voting",
+    functionName: "candidates",
+    args: [1n],
+  });
+
+  const candidate2 = useScaffoldReadContract({
+    contractName: "Voting",
+    functionName: "candidates",
+    args: [2n],
+  });
+
+  // Чтение победителя
+  const winner = useScaffoldReadContract({
+    contractName: "Voting",
+    functionName: "getWinner",
+  });
+
+  // Функция голосования
+  const { writeContractAsync: vote } = useScaffoldWriteContract({
+    contractName: "Voting",
+  });
+
+  // Обновляем победителя
+  useEffect(() => {
+    if (winner.data && Array.isArray(winner.data)) {
+      setWinnerName(winner.data[0]);
+      setWinnerVotes(Number(winner.data[1]));
+    }
+  }, [winner.data]);
 
   return (
-    <>
-      <div className="flex items-center flex-col grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
-          </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address
-              address={connectedAddress}
-              chain={targetNetwork}
-              blockExplorerAddressLink={
-                targetNetwork.id === hardhat.id ? `/blockexplorer/address/${connectedAddress}` : undefined
-              }
-            />
-          </div>
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
-        </div>
+    <div className="p-8 max-w-xl mx-auto text-center">
+      <h1 className="text-3xl font-bold mb-6">Decentralized Voting</h1>
 
-        <div className="grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col md:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
+      <h2 className="text-xl font-semibold mb-4">Candidates</h2>
+
+      <div className="space-y-4">
+        {candidate0.data && (
+          <div className="border p-4 rounded-lg">
+            <p className="font-bold">{candidate0.data[0]}</p>
+            <button className="btn btn-primary mt-2" onClick={() => vote({ functionName: "vote", args: [0n] })}>
+              Vote
+            </button>
           </div>
-        </div>
+        )}
+
+        {candidate1.data && (
+          <div className="border p-4 rounded-lg">
+            <p className="font-bold">{candidate1.data[0]}</p>
+            <button className="btn btn-primary mt-2" onClick={() => vote({ functionName: "vote", args: [1n] })}>
+              Vote
+            </button>
+          </div>
+        )}
+
+        {candidate2.data && (
+          <div className="border p-4 rounded-lg">
+            <p className="font-bold">{candidate2.data[0]}</p>
+            <button className="btn btn-primary mt-2" onClick={() => vote({ functionName: "vote", args: [2n] })}>
+              Vote
+            </button>
+          </div>
+        )}
       </div>
-    </>
-  );
-};
 
-export default Home;
+      <h2 className="text-xl font-semibold mt-8 mb-2">Winner</h2>
+      <div className="border rounded-lg p-4 bg-base-200">
+        <p className="font-bold">{winnerName}</p>
+        <p>Votes: {winnerVotes}</p>
+      </div>
+    </div>
+  );
+}
